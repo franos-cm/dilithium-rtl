@@ -199,12 +199,15 @@ module usehint #(
             RECEIVE_HINT: begin
                 // shift in hint
                 poly_num <= 0;
-                if ((ctr+1)*8 > hint_addrlen+num_hints) 
-                    hint_addr <= (hint_addr << (64-FINAL_SHIFT)) | (di >> FINAL_SHIFT);
-                else
-                    hint_addr <= (valid_i) ? {hint_addr[671-64:0], di} : hint_addr;
-                
-                state <= (valid_i && (ctr+1)*8 > hint_addrlen+num_hints) ? EXPAND_HINT : RECEIVE_HINT;
+                if (valid_i) begin
+                    if ((ctr+1)*8 > hint_addrlen+num_hints) begin
+                        hint_addr <= (hint_addr << (64-FINAL_SHIFT)) | (di >> FINAL_SHIFT);
+                        state <= EXPAND_HINT;
+                    end
+                    else begin
+                        hint_addr <= {hint_addr[671-64:0], di};
+                    end
+                end
             end
             EXPAND_HINT: begin
                 hint_poly[next_hint+hint_offset] <= 1;

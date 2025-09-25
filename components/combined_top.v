@@ -523,6 +523,53 @@ module combined_top #(
         cstate2 = FSM2_STALL;
     end
 
+    // Latches to account for backpressure
+    wire msg_loaded, ntt_t1_done, vy_ntt_c_en;
+    reg msg_loaded_strobe, ntt_t1_done_strobe;
+    wire msg_loaded_latched, ntt_t1_done_latched;
+    latch msg_loaded_latch(
+        .clk(clk),
+        .rst(rst || vy_ntt_c_en),
+        .set(msg_loaded_strobe),
+        .q(msg_loaded_latched)
+    );
+    latch ntt_t1_done_latch(
+        .clk(clk),
+        .rst(rst || vy_ntt_c_en),
+        .set(ntt_t1_done_strobe),
+        .q(ntt_t1_done_latched)
+    );
+    assign msg_loaded = msg_loaded_strobe || msg_loaded_latched;
+    assign ntt_t1_done = ntt_t1_done_strobe || ntt_t1_done_latched;
+    assign vy_ntt_c_en = msg_loaded && ntt_t1_done;
+
+    wire hint_loaded, ntt_c_done, vy_mult_en;
+    reg hint_loaded_strobe, ntt_c_done_strobe;
+    wire hint_loaded_latched, ntt_c_done_latched;
+    latch hint_loaded_latch(
+        .clk(clk),
+        .rst(rst || vy_mult_en),
+        .set(hint_loaded_strobe),
+        .q(hint_loaded_latched)
+    );
+    latch ntt_c_cone_latch(
+        .clk(clk),
+        .rst(rst || vy_mult_en),
+        .set(ntt_c_done_strobe),
+        .q(ntt_c_done_latched)
+    );
+    assign hint_loaded = hint_loaded_strobe || hint_loaded_latched;
+    assign ntt_c_done = ntt_c_done_strobe || ntt_c_done_latched;
+    assign vy_mult_en = hint_loaded && ntt_c_done;
+
+    wire done_a_latched;
+    latch done_a_latch(
+        .clk(clk),
+        .rst(rst_a),
+        .set(done_a),
+        .q(done_a_latched)
+    );
+
     always @(*) begin
         // Byte-len of vectors
         case(sec_lvl)
@@ -757,6 +804,11 @@ module combined_top #(
         poly_di0_hint      = 0;
         poly_di1_hint      = 0;
         poly_ready_o_hint = 0;
+
+        msg_loaded_strobe = 0;
+        ntt_t1_done_strobe = 0;
+        hint_loaded_strobe = 0;
+        ntt_c_done_strobe = 0;
         
         case({mode,cstate0})
         {2'd0,KG_INIT}: begin
@@ -1122,7 +1174,7 @@ module combined_top #(
                 end
             end else begin
                 ctr_next = ctr;
-            end 
+            end
         end
         {2'd1,VY_LOAD_C}: begin
             /* --- Datapath MUX --- */
@@ -1286,16 +1338,17 @@ module combined_top #(
             dib_ram0   = {1'd0, samples_a[7*23+:23], 1'd0, samples_a[6*23+:23], 1'd0, samples_a[5*23+:23], 1'd0, samples_a[4*23+:23]};
             
             /* --- CTRL Logic --- */
-            nstate0      = (done_op[0] && addr1_sel_op[0] == K-1) ? VY_NTT_C : VY_NTT_T1;
+            ntt_t1_done_strobe = (done_op[0] && (addr1_sel_op[0] == K-1));
             rst_op[0]   = (done_op[0]) ? 1 : 0;
             mode_op[0]  = FORWARD_NTT_MODE;
-            naddr1_sel_op[0] = (done_op[0] && addr1_sel_op[0] == K-1) ? 0 
-                             : (done_op[0]) ? addr1_sel_op[0] + 1 : addr1_sel_op[0];
+            naddr1_sel_op[0] = ntt_t1_done ? 0 
+                               : (done_op[0]) ? addr1_sel_op[0] + 1
+                                 : addr1_sel_op[0];
                     
-                             
             // load tr back into 
-            ctr0_next = (done_op[0] && addr1_sel_op[0] == K-1) ? 0 
-                        : (src_read[2] || dst_write[2]) ? ctr0 + 1 : ctr0;
+            ctr0_next = vy_ntt_c_en ? 0 
+                        : (src_read[2] || dst_write[2]) ? ctr0 + 1
+                          : ctr0;
 
             k_fsm = 1;
             if (ctr0 == 0) begin
@@ -1305,6 +1358,7 @@ module combined_top #(
                 src_ready_fsm = ~valid_i;
                 // ready_i   = src_read[2];
                 ready_i_mux = 1;
+                // TODO: change this to increase message size
                 din_fsm       = {4'hE, 28'd512, 32'd256+5'd8*data_i[15:0]};
             end else if (ctr0 < 6) begin
                 // ready_i   = 0;
@@ -1317,11 +1371,15 @@ module combined_top #(
                 ready_i_mux     = 1;
                 
                 dst_ready_fsm   = ({ctr0, 3'd0} <= mlen_PLUS112) ? 0 : 1;
+                msg_loaded_strobe = dst_ready_fsm;
             end
+
+            nstate0 = vy_ntt_c_en ? VY_NTT_C : VY_NTT_T1;
         end
         {2'd1,VY_NTT_C}: begin
             /* --- Datapath MUX --- */
             // NTT on t1
+            mode_op[0]  = FORWARD_NTT_MODE;
             addra_ram3 = addra1_op[0];
             addrb_ram3 = addrb1_op[0];
             web_ram3   = web1_op[0];
@@ -1346,11 +1404,21 @@ module combined_top #(
             di_hint      = data_i;
             
             /* --- CTRL Logic --- */
-            mode_op[0]  = FORWARD_NTT_MODE;
-            
-            nstate0      = ((done_op[0] && sec_lvl != 5) || (done_a && sec_lvl == 5)) ? VY_MULT_AZ : VY_NTT_C;
-            rst_op[0]   = ((done_op[0] && sec_lvl != 5) || (done_a && sec_lvl == 5)) ? 1 : 0;
-            
+            if (ready_i_hint && valid_i_hint) begin
+                if (((ctr == 10) && (sec_lvl != 3)) || ((ctr == 7) && (sec_lvl == 3))) begin
+                    hint_loaded_strobe = 1;
+                end
+                else begin
+                    ctr_next = ctr + 1;
+                end
+            end else begin
+                ctr_next = ctr;
+            end
+            ctr_next = hint_loaded ? 0 : ctr_next;
+
+            ntt_c_done_strobe = (done_op[0] && done_a_latched);
+            nstate0      = vy_mult_en ? VY_MULT_AZ : VY_NTT_C;
+            rst_op[0]   = ntt_c_done ? 1 : 0; 
         end
         {2'd1,VY_MULT_AZ}: begin
             /* --- Datapath MUX --- */
@@ -2426,10 +2494,10 @@ module combined_top #(
                 
                 mlen <= (ready_i && valid_i && ctr0 == 1) ? data_i[31:0] : mlen;
                 addr1_sel_op[0] <= naddr1_sel_op[0]; 
-                start_op[0]     <= (done_op[0]) ? 1 : 0;
+                start_op[0]     <= ((done_op[0] && !ntt_t1_done) || vy_ntt_c_en) ? 1 : 0;
             end
             {2'd1,VY_NTT_C}: begin
-                start_op[0]     <= ((done_op[0] && sec_lvl != 5) || (done_a && sec_lvl == 5)) ? 1 : 0;
+                start_op[0]     <= vy_mult_en ? 1 : 0;
             end
             {2'd1,VY_MULT_AZ}: begin
                 start_op[0]     <= (done_op[0]) ? 1 : 0; 
