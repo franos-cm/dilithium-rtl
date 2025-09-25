@@ -21,6 +21,7 @@
  * @author   Luke Beckwith <lbeckwit@gmu.edu>
  */
 
+`timescale 1ns / 1ps
 
 module DecoupledStage(
   input         clock,
