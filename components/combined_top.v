@@ -1610,7 +1610,7 @@ module combined_top #(
             dib_ram0   = {1'd0, samples_a[7*23+:23], 1'd0, samples_a[6*23+:23], 1'd0, samples_a[5*23+:23], 1'd0, samples_a[4*23+:23]};
             
             /* --- CTRL Logic --- */ 
-            if ({ctr1,3'd0} > mlen_PLUS64) begin
+            if (({ctr1,3'd0} >= mlen_PLUS64) && (valid_i && ready_i)) begin
                 nstate0 = FSM0_DECODE_S1;
                 ctr1_next = 0;
                 nstart_fsm1 = 1;
