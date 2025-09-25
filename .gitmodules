@@ -1,0 +1,4 @@
+[submodule "components/shake-sv"]
+	path = components/shake-sv
+	url = https://github.com/franos-cm/shake-sv.git
+	branch = dilithium-compat
