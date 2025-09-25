@@ -2264,7 +2264,7 @@ module combined_top #(
         if (rst) begin
             cstate0 <= FSM0_INIT;
             cstate1 <= FSM1_STALL;
-            cstate1 <= FSM2_STALL;
+            cstate2 <= FSM2_STALL;
             ctr    <= 0;
             ctr0   <= 0;
             ctr1   <= 0;
