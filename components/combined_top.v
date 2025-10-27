@@ -1370,7 +1370,7 @@ module combined_top #(
                 din_fsm         = data_i;
                 ready_i_mux     = 1;
                 
-                dst_ready_fsm   = ({ctr0, 3'd0} <= mlen_PLUS112) ? 0 : 1;
+                dst_ready_fsm   = ({ctr0, 3'd0} < mlen_PLUS112) ? 0 : 1;
                 msg_loaded_strobe = dst_ready_fsm;
             end
 

@@ -1,2 +1,7 @@
-vivado/
 tb/results/
+.Xil/
+vivado/
+vivado*.jou
+vivado*.log
+vivado*.str
+xvlog.pb
