@@ -45,7 +45,8 @@ module operation_module(
     input      [95:0] doa2,
     output reg        web2 = 0,
     output reg [95:0] dib2 = 0
-    );
+);
+    localparam string ZETAS_PATH = "/home/franos/projects/project-petalite/soc/cores/dilithium-rtl/data/zetas.txt";
     
     localparam
         FORWARD_NTT_MODE = 3'd0,
@@ -80,9 +81,9 @@ module operation_module(
     reg en_twiddle;
     wire [23:0] do1_twiddle,do2_twiddle,do3_twiddle,do4_twiddle;
     
-    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE("/home/franos/projects/project-petalite/dilithium-rtl/data/zetas.txt")) 
+    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE(ZETAS_PATH)) 
             TWIDDLE_RAM1 (clk, en_twiddle, twiddle_addr[0], twiddle_addr[1],do1_twiddle,do2_twiddle);
-    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE("/home/franos/projects/project-petalite/dilithium-rtl/data/zetas.txt")) 
+    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE(ZETAS_PATH)) 
             TWIDDLE_RAM2 (clk, en_twiddle, twiddle_addr[2], twiddle_addr[3],do3_twiddle,do4_twiddle);
     
     butterfly2x2 BF_CIRCUIT(
