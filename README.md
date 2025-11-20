@@ -12,9 +12,14 @@ We recommend reading the article referenced in the original repository to get a 
 
 > ℹ️ **Note**
 > 
-> To actually synthesize or simulate this design after cloning the repository, the only required change is the path for initializing the ROM [here](components/operation_module.v). 
+> If using the testbench, it is necessary to change all the paths [here](tb/tb_pkg.sv).
+> 
+> When synthesizing the design, the ```ZETAS_PATH``` parameter will need to be set in the top-level ```dilithium``` module.
+> In the case of Vivado, this can be done using the TCL console:
 >
-> Moreover, if using the testbench, it is also necessary to change the paths [here](tb/tb_pkg.sv).
+> ```tcl
+> set_property generic {ZETAS_PATH="/path/to/zetas.txt"} [current_fileset]
+> ```
 
 # Changes made
 

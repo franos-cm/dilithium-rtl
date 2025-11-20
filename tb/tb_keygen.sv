@@ -46,7 +46,9 @@ module tb_keygen;
                                          (SEC_LEVEL == 5) ? 3'b101 : 3'b000;
 
 
-    dilithium dut (
+    dilithium #(
+        .ZETAS_PATH (ZETAS_PATH)
+    ) dut (
         .clk (clk),
         .rst (rst),
         .start (start),

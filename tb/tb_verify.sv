@@ -4,7 +4,8 @@ import tb_pkg::*;
 
 module tb_verify;
     localparam logic[1:0] MODE = VERIFY_MODE;
-    localparam int IDLE_CYCLES_NUM = 100000;
+    localparam int IDLE1_CYCLES_NUM = 10000;
+    localparam int IDLE2_CYCLES_NUM = 10000;
 
     logic tb_rst, failed;
     integer ctr, tv_ctr, idle_ctr;
@@ -48,7 +49,9 @@ module tb_verify;
                                          (SEC_LEVEL == 5) ? 3'b101 : 3'b000;
 
 
-    dilithium dut (
+    dilithium #(
+        .ZETAS_PATH (ZETAS_PATH)
+    ) dut (
         .clk (clk),
         .rst (rst),
         .start (start),
@@ -202,9 +205,9 @@ module tb_verify;
                     data_i <= msg_len[tv_ctr];
                 
                     if (ready_i) begin
-                        data_i <= msg[tv_ctr][0 +: W];
-                        state  <= S_IDLE_1;
-                        valid_i <= 0; // delete if not using IDLE states
+                        data_i  <= msg[tv_ctr][0 +: W];
+                        state   <= IDLE1_CYCLES_NUM ? S_IDLE_1 : LOAD_MSG;
+                        valid_i <= IDLE1_CYCLES_NUM ? 0 : 1;
                         load_msg_time = $time;
                     end
                 end
@@ -212,7 +215,7 @@ module tb_verify;
                     valid_i <= 0;
                     ready_o <= 0;
                     idle_ctr <= idle_ctr + 1;
-                    if (idle_ctr == IDLE_CYCLES_NUM) begin
+                    if (idle_ctr == IDLE1_CYCLES_NUM) begin
                         state <= LOAD_MSG;
                         idle_ctr <= 0;
                     end
@@ -224,9 +227,9 @@ module tb_verify;
                     if (ready_i) begin
                         if ((ctr+1)*W >= msg_len[tv_ctr]*8) begin
                             ctr     <= 0;
-                            state   <= HIGH_PERF ? S_IDLE_2 : UNLOAD_RESULT;
+                            state   <= HIGH_PERF ? (IDLE1_CYCLES_NUM ? S_IDLE_2 : LOAD_H) : UNLOAD_RESULT;
                             data_i  <= h[tv_ctr][0 +: W];
-                            valid_i <= 0; // change to (HIGH_PERF ? 1 : 0) if not using IDLE states
+                            valid_i <= IDLE1_CYCLES_NUM ? 0 : (HIGH_PERF ? 1 : 0);
                             ready_o <= HIGH_PERF ? 0 : 1;
                             exec_time = $time;
                         end else begin
@@ -239,7 +242,7 @@ module tb_verify;
                     valid_i <= 0;
                     ready_o <= 0;
                     idle_ctr <= idle_ctr + 1;
-                    if (idle_ctr == IDLE_CYCLES_NUM) begin
+                    if (idle_ctr == IDLE1_CYCLES_NUM) begin
                         state <= LOAD_H;
                         idle_ctr <= 0;
                     end

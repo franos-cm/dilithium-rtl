@@ -24,10 +24,11 @@
 `timescale 1ns / 1ps
 
 module combined_top #(
+    parameter ZETAS_PATH,
     parameter BUS_W     = 4,
     parameter SAMPLE_W  = 23,
     parameter W         = 64
-    ) (
+) (
     input clk,
     input rst,
     input start,
@@ -39,7 +40,7 @@ module combined_top #(
     output reg         valid_o = 0,
     input              ready_o,
     output reg [W-1:0] data_o = 0
-    );
+);
     
     localparam
         KG_INIT        = 4'd0,
@@ -492,7 +493,9 @@ module combined_top #(
 
     generate
         for (g = 0; g < NUM_OPERATORS; g = g + 1) begin
-            operation_module OPERATOR(
+            operation_module #(
+                .ZETAS_PATH (ZETAS_PATH)
+            ) OPERATOR (
                 clk, rst_op[g], start_op[g], mode_op[g], encode_mode_op[g], done_op[g],
                 // BRAM 1
                 addra1_op[g], addrb1_op[g], doa1_op[g], dob1_op[g],
@@ -543,32 +546,34 @@ module combined_top #(
     assign ntt_t1_done = ntt_t1_done_strobe || ntt_t1_done_latched;
     assign vy_ntt_c_en = msg_loaded && ntt_t1_done;
 
-    wire hint_loaded, ntt_c_done, vy_mult_en;
-    reg hint_loaded_strobe, ntt_c_done_strobe;
-    wire hint_loaded_latched, ntt_c_done_latched;
+    wire vy_mult_en, hint_loaded, ntt_c_done;
+    wire hint_loaded_latched, done_a_latched, done_op_latched;
+    wire done_a_passthrough, done_op_passthrough;
+    reg hint_loaded_strobe;
     latch hint_loaded_latch(
         .clk(clk),
         .rst(rst || vy_mult_en),
         .set(hint_loaded_strobe),
         .q(hint_loaded_latched)
     );
-    latch ntt_c_cone_latch(
-        .clk(clk),
-        .rst(rst || vy_mult_en),
-        .set(ntt_c_done_strobe),
-        .q(ntt_c_done_latched)
-    );
-    assign hint_loaded = hint_loaded_strobe || hint_loaded_latched;
-    assign ntt_c_done = ntt_c_done_strobe || ntt_c_done_latched;
-    assign vy_mult_en = hint_loaded && ntt_c_done;
-
-    wire done_a_latched;
     latch done_a_latch(
         .clk(clk),
-        .rst(rst_a),
+        .rst(rst || rst_a || vy_mult_en),
         .set(done_a),
         .q(done_a_latched)
     );
+    latch done_op_latch(
+        .clk(clk),
+        .rst(rst || vy_ntt_c_en || vy_mult_en),
+        .set(done_op[0]),
+        .q(done_op_latched)
+    );
+    assign hint_loaded = hint_loaded_strobe || hint_loaded_latched;
+    assign done_a_passthrough = done_a || done_a_latched;
+    assign done_op_passthrough = done_op || done_op_latched;
+    assign ntt_c_done = done_a_passthrough && done_op_passthrough;
+    assign vy_mult_en = hint_loaded && ntt_c_done;
+
 
     always @(*) begin
         // Byte-len of vectors
@@ -808,7 +813,6 @@ module combined_top #(
         msg_loaded_strobe = 0;
         ntt_t1_done_strobe = 0;
         hint_loaded_strobe = 0;
-        ntt_c_done_strobe = 0;
         
         case({mode,cstate0})
         {2'd0,KG_INIT}: begin
@@ -1416,8 +1420,7 @@ module combined_top #(
             end
             ctr_next = hint_loaded ? 0 : ctr_next;
 
-            ntt_c_done_strobe = (done_op[0] && done_a_latched);
-            nstate0      = vy_mult_en ? VY_MULT_AZ : VY_NTT_C;
+            nstate0     = vy_mult_en ? VY_MULT_AZ : VY_NTT_C;
             rst_op[0]   = ntt_c_done ? 1 : 0; 
         end
         {2'd1,VY_MULT_AZ}: begin
@@ -2438,6 +2441,7 @@ module combined_top #(
                 if (src_read[2]  && ~src_ready_fsm) begin
                     keccak_valid <= {keccak_valid[318:0], 1'b0};
                     keccak_fifo[0] <= 0;
+                    /*verilator unroll_full*/
                     for (i = 0; i < 319; i = i + 1)
                         keccak_fifo[i+1] <= keccak_fifo[i];
                 end
@@ -2448,6 +2452,7 @@ module combined_top #(
                 if (src_read[2]  && ~src_ready_fsm) begin
                     keccak_valid <= {keccak_valid[318:0], 1'b0};
                     keccak_fifo[0] <= 0;
+                    /*verilator unroll_full*/
                     for (i = 0; i < 319; i = i + 1)
                         keccak_fifo[i+1] <= keccak_fifo[i];
                 end

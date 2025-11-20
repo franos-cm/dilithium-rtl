@@ -7,6 +7,7 @@ package tb_pkg;
     localparam integer INITIAL_TV = 0;
     localparam string TV_BASE_PATH = "/home/franos/projects/dilithium-rtl/tb/kat/";
     localparam string RESULTS_DIR = "/home/franos/projects/dilithium-rtl/tb/results/";
+    localparam string ZETAS_PATH = "/home/franos/projects/dilithium-rtl/data/zetas.txt";
 
     // Calculated params
     localparam integer SEED_SIZE = 256;

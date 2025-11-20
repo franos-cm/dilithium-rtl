@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
 
-module dilithium (
+module dilithium #(
+    parameter ZETAS_PATH
+) (
     input  logic           clk,
     input  logic           rst,
     input  logic           start,
@@ -39,7 +41,10 @@ module dilithium (
         .last (last)
     );
 
-    combined_top top (
+    combined_top #
+    (
+        .ZETAS_PATH (ZETAS_PATH)
+    ) top (
         .clk     (clk),
         .rst     (rst),
         .start   (start_strobe),

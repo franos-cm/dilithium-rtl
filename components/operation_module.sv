@@ -25,7 +25,9 @@
 `timescale 1ns / 1ps
 
 
-module operation_module(
+module operation_module#(
+    parameter ZETAS_PATH
+)(
     input clk,
     input rst,
     input start,
@@ -80,9 +82,9 @@ module operation_module(
     reg en_twiddle;
     wire [23:0] do1_twiddle,do2_twiddle,do3_twiddle,do4_twiddle;
     
-    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE("/home/franos/projects/dilithium-rtl/data/zetas.txt")) 
+    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE(ZETAS_PATH)) 
             TWIDDLE_RAM1 (clk, en_twiddle, twiddle_addr[0], twiddle_addr[1],do1_twiddle,do2_twiddle);
-    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE("/home/franos/projects/dilithium-rtl/data/zetas.txt")) 
+    dual_port_rom #(.WIDTH(24), .LENGTH(256), .INIT_FILE(ZETAS_PATH)) 
             TWIDDLE_RAM2 (clk, en_twiddle, twiddle_addr[2], twiddle_addr[3],do3_twiddle,do4_twiddle);
     
     butterfly2x2 BF_CIRCUIT(
