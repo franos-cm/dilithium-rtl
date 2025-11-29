@@ -225,17 +225,16 @@ module combined_top #(
     genvar g;
     generate
         for (g = 0; g < 3; g = g + 1) begin
- 
 		    keccak KECCAK(
-                .clk        (clk),
-                .rst        (rst_k[g]),
-                .valid_in   (src_ready[g]),
-                .ready_in   (dst_ready[g]),
-                .data_in    (din[g]),
-                .ready_out  (src_read[g]),
-                .valid_out  (dst_write[g]),
-                .data_out   (dout[g])
-                ); 
+                .clk      (clk),
+                .rst      (rst_k[g]),
+                .valid_i  (src_ready[g]),
+                .ready_o  (dst_ready[g]),
+                .data_i   (din[g]),
+                .ready_i  (src_read[g]),
+                .valid_o  (dst_write[g]),
+                .data_o   (dout[g])
+            );
         end
     endgenerate
 
