@@ -4,9 +4,11 @@ import tb_pkg::*;
 
 module tb_sign;
     localparam logic[1:0] MODE = SIGN_MODE;
+    localparam int IDLE1_CYCLES_NUM = 0;
+    localparam int IDLE2_CYCLES_NUM = 0;
 
     logic tb_rst, failed;
-    integer ctr, tv_ctr;
+    integer ctr, tv_ctr, idle_ctr;
     // Since dilithium-low-res loads/dumps the data as separate
     // operations, it is useful to keep track of both also separately.
     // These counters are thus only valid for dilithium-low-res.
@@ -41,7 +43,10 @@ module tb_sign;
     typedef enum logic [3:0] {
         S_INIT, S_START, LOAD_RHO, LOAD_MLEN, LOAD_TR,
         LOAD_MSG, LOAD_K, LOAD_S1, LOAD_S2, LOAD_T0, UNLOAD_Z,
-        UNLOAD_H, UNLOAD_C, S_STOP
+        UNLOAD_H, UNLOAD_C, S_STOP,
+        // NOTE: the idle states are unnecessary, but simulate backpressure,
+        //       which is relevant for testing the designs under different cenarios
+        S_IDLE_1, S_IDLE_2
     } state_t;
     state_t state;
 
@@ -116,6 +121,7 @@ module tb_sign;
             failed              <= 0;
             rst                 <= 1;
             state               <= S_INIT;
+            idle_ctr            <= 0;
         end
 
         else begin
@@ -173,13 +179,23 @@ module tb_sign;
                 
                     if (ready_i) begin
                         if (ctr == SEED_WORDS_NUM-1) begin
-                            ctr    <= 0;
-                            state  <= HIGH_PERF ? LOAD_MSG : LOAD_S1;
-                            data_i <= HIGH_PERF ? msg[tv_ctr][0 +: W] : s1[tv_ctr][0 +: W];
+                            ctr     <= 0;
+                            state   <= HIGH_PERF ? (IDLE1_CYCLES_NUM ? S_IDLE_1 : LOAD_MSG) : LOAD_S1;
+                            data_i  <= HIGH_PERF ? msg[tv_ctr][0 +: W] : s1[tv_ctr][0 +: W];
+                            valid_i <= IDLE1_CYCLES_NUM ? 0 : 1;
                         end else begin
                             ctr    <= ctr + 1;
                             data_i <= tr[tv_ctr][(ctr+1)*W +: W];
                         end
+                    end
+                end
+                S_IDLE_1: begin
+                    valid_i <= 0;
+                    ready_o <= 0;
+                    idle_ctr <= idle_ctr + 1;
+                    if (idle_ctr == IDLE1_CYCLES_NUM) begin
+                        state <= LOAD_MSG;
+                        idle_ctr <= 0;
                     end
                 end
                 LOAD_MSG: begin
@@ -189,15 +205,24 @@ module tb_sign;
                     if (ready_i) begin
                         if ((ctr+1)*W >= msg_len[tv_ctr]*8) begin
                             ctr     <= 0;
-                            state   <= HIGH_PERF ? LOAD_K : UNLOAD_C;
+                            state   <= HIGH_PERF ? (IDLE2_CYCLES_NUM ? S_IDLE_2 : LOAD_K) : UNLOAD_C;
                             data_i  <= k[tv_ctr][0 +: W];
-                            valid_i <= HIGH_PERF ? 1 : 0;
+                            valid_i <= IDLE2_CYCLES_NUM ? 0 : (HIGH_PERF ? 1 : 0);
                             ready_o <= HIGH_PERF ? 0 : 1;
                             exec_time = $time;
                         end else begin
                             ctr    <= ctr + 1;
                             data_i <= msg[tv_ctr][(ctr+1)*W +: W];
                         end
+                    end
+                end
+                S_IDLE_2: begin
+                    valid_i <= 0;
+                    ready_o <= 0;
+                    idle_ctr <= idle_ctr + 1;
+                    if (idle_ctr == IDLE2_CYCLES_NUM) begin
+                        state <= LOAD_K;
+                        idle_ctr <= 0;
                     end
                 end
                 LOAD_K: begin

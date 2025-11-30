@@ -227,9 +227,9 @@ module tb_verify;
                     if (ready_i) begin
                         if ((ctr+1)*W >= msg_len[tv_ctr]*8) begin
                             ctr     <= 0;
-                            state   <= HIGH_PERF ? (IDLE1_CYCLES_NUM ? S_IDLE_2 : LOAD_H) : UNLOAD_RESULT;
+                            state   <= HIGH_PERF ? (IDLE2_CYCLES_NUM ? S_IDLE_2 : LOAD_H) : UNLOAD_RESULT;
                             data_i  <= h[tv_ctr][0 +: W];
-                            valid_i <= IDLE1_CYCLES_NUM ? 0 : (HIGH_PERF ? 1 : 0);
+                            valid_i <= IDLE2_CYCLES_NUM ? 0 : (HIGH_PERF ? 1 : 0);
                             ready_o <= HIGH_PERF ? 0 : 1;
                             exec_time = $time;
                         end else begin
@@ -242,7 +242,7 @@ module tb_verify;
                     valid_i <= 0;
                     ready_o <= 0;
                     idle_ctr <= idle_ctr + 1;
-                    if (idle_ctr == IDLE1_CYCLES_NUM) begin
+                    if (idle_ctr == IDLE2_CYCLES_NUM) begin
                         state <= LOAD_H;
                         idle_ctr <= 0;
                     end

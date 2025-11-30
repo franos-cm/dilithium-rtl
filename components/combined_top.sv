@@ -573,6 +573,19 @@ module combined_top #(
     assign ntt_c_done = done_a_passthrough && done_op_passthrough;
     assign vy_mult_en = hint_loaded && ntt_c_done;
 
+    wire done_addr1, ntt_y_done;
+    wire done_addr1_latched;
+    wire done_addr1_passthrough;
+    latch done_addr1_latch(
+        .clk(clk),
+        .rst(rst || ntt_y_done),
+        .set(done_addr1),
+        .q(done_addr1_latched)
+    );
+    assign done_addr1 = done_op[0] && (addr1_sel_op[0] == L-1);
+    assign done_addr1_passthrough = done_addr1 || done_addr1_latched;
+    assign ntt_y_done = done_a_passthrough && done_addr1_passthrough;
+
 
     always @(*) begin
         // Byte-len of vectors
@@ -1937,12 +1950,12 @@ module combined_top #(
         
             /* --- CTRL Logic --- */ 
             if (sec_lvl == 2 || cstate0 == 7) begin
-                nstate1    = (done_op[0] && addr1_sel_op[0] == L-1) ? FSM1_MULT_A_Y : FSM1_NTT_Y;
+                nstate1    = (done_addr1) ? FSM1_MULT_A_Y : FSM1_NTT_Y;
                 rst_op[0]   = (done_op[0]) ? 1 : 0;
             end else begin
                 // sampleA is bottleneck
-                nstate1    = (done_a) ? FSM1_MULT_A_Y : FSM1_NTT_Y;
-                rst_op[0]   = ((done_op[0] && addr1_sel_op[0] != L-1) || done_a) ? 1 : 0;
+                nstate1    = (ntt_y_done) ? FSM1_MULT_A_Y : FSM1_NTT_Y;
+                rst_op[0]   = ((done_op[0] && !done_addr1_passthrough) || ntt_y_done) ? 1 : 0;
             end
             
             
